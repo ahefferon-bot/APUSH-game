@@ -42,11 +42,14 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px soli
 .tl li{align-items:flex-start}
 .del{border-color:var(--bad);color:var(--bad)}
 .note{color:var(--mute);font-size:.9rem}
+#tlink{position:absolute;top:12px;right:16px;color:var(--ink);border:1px solid var(--ink);background:var(--card);padding:6px 12px;border-radius:6px;text-decoration:none;font-size:.9rem}
+#tlink:hover{background:#e3e9f0}
 @media(max-width:480px){.row{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:no-preference){#list li{transition:box-shadow .15s}}
 </style>
 </head>
 <body>
+<a id="tlink" href="teacher.html" hidden>Teacher page &rarr;</a>
 <main id="app"></main>
 
 <script>
@@ -84,6 +87,7 @@ let title = 'Put it in order';
 /* ---------- Loading ---------- */
 const take = d => { events = clean(Array.isArray(d) ? d : d && d.e); if (d && d.n) title = d.n; };
 async function load() {
+  document.getElementById('tlink').hidden = location.hash.length > 1;
   try { take(await unpack(location.hash)); } catch(e){}
   if (!events.length) { try { const r = await fetch('events.json'); if (r.ok) take(await r.json()); } catch(e){} }
   if (!events.length) events = SAMPLE.slice();
