@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>American History Timeline</title>
+<link href="https://fonts.googleapis.com/css2?family=Bitter:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#eef1f4;--card:#fff;--ink:#1b2a41;--mute:#5b6b80;--line:#c3ccd8;--red:#a63a2e;--blue:#27507a;--ok:#2e7d4f;--bad:#a63a2e}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:720px;margin:0 auto;padding:28px 18px 60px}
+h1{font:700 2rem/1.15 Bitter,Georgia,serif;margin:0 0 6px}
+h2{font:700 1.2rem Bitter,Georgia,serif;margin:28px 0 10px}
+p.lead{color:var(--mute);margin:0 0 22px}
+button,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:1px solid var(--ink);background:var(--card);padding:8px 14px;border-radius:6px}
+button:hover{background:#e3e9f0}
+button.primary{background:var(--ink);color:#fff}
+button.primary:hover{background:#2d4263}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0}
+#list{list-style:none;margin:0;padding:0 0 0 26px;border-left:4px solid var(--ink)}
+#list li{position:relative;background:var(--card);border:1px solid var(--line);border-radius:6px;padding:12px 12px 12px 16px;margin:0 0 10px;display:flex;gap:12px;align-items:center}
+#list li::before{content:"";position:absolute;left:-36px;top:50%;width:14px;height:14px;margin-top:-7px;border-radius:50%;background:var(--bg);border:4px solid var(--ink)}
+#list li[draggable=true]{cursor:grab}
+#list li.drag{opacity:.4}
+#list li.over{border-color:var(--blue);box-shadow:0 -3px 0 var(--blue)}
+.txt{flex:1}
+.txt b{display:block}
+.txt small{color:var(--mute)}
+.yr{font:700 1.1rem Bitter,serif;color:var(--red);min-width:64px;text-align:right}
+.mv{display:flex;flex-direction:column;gap:4px}
+.mv button{padding:2px 9px;line-height:1.2}
+#msg{margin:14px 0;padding:12px 14px;border-radius:6px;display:none;font-weight:600}
+#msg.bad{display:block;background:#f6e1de;color:var(--bad)}
+#msg.ok{display:block;background:#dcefe3;color:var(--ok)}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:16px}
+.panel label{display:block;margin:0 0 10px;font-weight:600}
+.panel input,.panel textarea{width:100%;padding:8px;border:1px solid var(--line);border-radius:6px;margin-top:4px;font-weight:400;background:#fff}
+.row{display:grid;grid-template-columns:1fr 130px;gap:12px}
+.tl li{align-items:flex-start}
+.del{border-color:var(--bad);color:var(--bad)}
+.note{color:var(--mute);font-size:.9rem}
+@media(max-width:480px){.row{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:no-preference){#list li{transition:box-shadow .15s}}
+</style>
+</head>
+<body>
+<main id="app"></main>
+
+<script>
+/* ---------- Sample events (used if nothing else is loaded) ---------- */
+const SAMPLE = [
+ {t:"Declaration of Independence adopted",y:1776,h:"Thomas Jefferson was the main author."},
+ {t:"U.S. Constitution signed",y:1787,h:"Written at a convention in Philadelphia."},
+ {t:"Louisiana Purchase",y:1803,h:"Doubled the size of the young nation."},
+ {t:"Emancipation Proclamation",y:1863,h:"Issued by Abraham Lincoln during the Civil War."},
+ {t:"Transcontinental Railroad completed",y:1869,h:"Joined at Promontory Summit, Utah."},
+ {t:"Wright brothers' first flight",y:1903,h:"Kitty Hawk, North Carolina."},
+ {t:"Stock market crash",y:1929,h:"Marked the start of the Great Depression."},
+ {t:"Attack on Pearl Harbor",y:1941,h:"Brought the U.S. into World War II."},
+ {t:"Brown v. Board of Education",y:1954,h:"Supreme Court ruled school segregation unconstitutional."},
+ {t:"Apollo 11 lands on the Moon",y:1969,h:"Neil Armstrong and Buzz Aldrin."}
+];
+
+const app = document.getElementById('app');
+let events = [], order = [], solved = false;
+
+/* ---------- Helpers ---------- */
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const clean = a => Array.isArray(a) ? a.filter(e => e && e.t && Number.isFinite(+e.y)).map(e => ({t:String(e.t), y:+e.y, h:e.h ? String(e.h) : ''})) : [];
+const b64 = u => btoa(String.fromCharCode(...u));
+async function pipe(u8, T){ return new Uint8Array(await new Response(new Blob([u8]).stream().pipeThrough(new T('deflate-raw'))).arrayBuffer()); }
+async function unpack(h){
+  const m = h.match(/^#([dz])=(.+)$/); if (!m) return null;
+  let t = m[2].replace(/-/g,'+').replace(/_/g,'/'); while (t.length % 4) t += '=';
+  let u = Uint8Array.from(atob(t), c => c.charCodeAt(0));
+  if (m[1] === 'z') u = await pipe(u, DecompressionStream);
+  return JSON.parse(new TextDecoder().decode(u));
+}
+let title = 'Put it in order';
+
+/* ---------- Loading ---------- */
+const take = d => { events = clean(Array.isArray(d) ? d : d && d.e); if (d && d.n) title = d.n; };
+async function load() {
+  try { take(await unpack(location.hash)); } catch(e){}
+  if (!events.length) { try { const r = await fetch('events.json'); if (r.ok) take(await r.json()); } catch(e){} }
+  if (!events.length) events = SAMPLE.slice();
+  render();
+}
+
+/* ---------- Student view ---------- */
+const inOrder = a => a.every((v, i) => i === 0 || events[a[i-1]].y <= events[v].y);
+function shuffle() {
+  order = events.map((_, i) => i);
+  if (order.length < 2) return;
+  do { for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; } } while (inOrder(order));
+}
+function studentView() {
+  app.innerHTML = `
+    <h1>${esc(title)}</h1>
+    <p class="lead">Arrange these events from earliest to latest. Drag the cards, or use the arrow buttons.</p>
+    <ol id="list"></ol>
+    <div id="msg" role="status"></div>
+    <div class="bar"><button class="primary" id="check">Check my order</button><button id="again" hidden>Play again</button></div>`;
+  paint();
+  document.getElementById('check').onclick = check;
+  document.getElementById('again').onclick = () => { solved = false; shuffle(); studentView(); };
+}
+function paint() {
+  const ol = document.getElementById('list');
+  ol.innerHTML = order.map((id, pos) => {
+    const e = events[id];
+    return `<li data-pos="${pos}" ${solved ? '' : 'draggable="true"'}>
+      <div class="txt"><b>${esc(e.t)}</b>${e.h ? `<small>${esc(e.h)}</small>` : ''}</div>
+      ${solved ? `<span class="yr">${e.y}</span>` : `<div class="mv">
+        <button aria-label="Move up: ${esc(e.t)}" data-mv="-1" ${pos === 0 ? 'disabled' : ''}>▲</button>
+        <button aria-label="Move down: ${esc(e.t)}" data-mv="1" ${pos === order.length - 1 ? 'disabled' : ''}>▼</button></div>`}
+    </li>`;
+  }).join('');
+  if (solved) return;
+  let from = null;
+  ol.querySelectorAll('li').forEach(li => {
+    const pos = +li.dataset.pos;
+    li.querySelectorAll('[data-mv]').forEach(b => b.onclick = () => move(pos, pos + +b.dataset.mv));
+    li.ondragstart = ev => { from = pos; li.classList.add('drag'); ev.dataTransfer.effectAllowed = 'move'; ev.dataTransfer.setData('text/plain', pos); };
+    li.ondragend = () => li.classList.remove('drag');
+    li.ondragover = ev => { ev.preventDefault(); li.classList.add('over'); };
+    li.ondragleave = () => li.classList.remove('over');
+    li.ondrop = ev => { ev.preventDefault(); if (from !== null) move(from, pos); };
+  });
+}
+function move(a, b) {
+  if (b < 0 || b >= order.length || a === b) return;
+  order.splice(b, 0, order.splice(a, 1)[0]);
+  paint();
+}
+function check() {
+  const msg = document.getElementById('msg');
+  if (inOrder(order)) {
+    solved = true; paint();
+    msg.className = 'ok'; msg.textContent = 'Correct! Every event is in the right order. The years are now shown.';
+    document.getElementById('check').hidden = true;
+    document.getElementById('again').hidden = false;
+  } else {
+    const sorted = order.slice().sort((a, b) => events[a].y - events[b].y);
+    const right = order.filter((id, i) => events[id].y === events[sorted[i]].y).length;
+    msg.className = 'bad';
+    msg.textContent = `Not quite. ${right} of ${order.length} events are in the right spot. Adjust the order and try again.`;
+  }
+}
+
+/* ---------- Router ---------- */
+function render() {
+  if (events.length < 2) { app.innerHTML = '<h1>Nothing to sort yet</h1><p class="lead">Ask your teacher for the link to the activity.</p>'; return; }
+  solved = false; shuffle(); studentView();
+}
+window.addEventListener('hashchange', () => { events = []; load(); });
+load();
+</script>
+</body>
+</html>

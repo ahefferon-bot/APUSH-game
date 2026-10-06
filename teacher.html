@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Teacher: Timeline Events</title>
+<link href="https://fonts.googleapis.com/css2?family=Bitter:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#eef1f4;--card:#fff;--ink:#1b2a41;--mute:#5b6b80;--line:#c3ccd8;--red:#a63a2e;--blue:#27507a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:760px;margin:0 auto;padding:28px 18px 60px}
+h1{font:700 2rem/1.15 Bitter,Georgia,serif;margin:0 0 6px}
+h2{font:700 1.2rem Bitter,Georgia,serif;margin:28px 0 10px}
+.lead,.note{color:var(--mute)}
+.lead{margin:0 0 22px}
+.note{font-size:.9rem}
+button,input,textarea,.btn{font:inherit;color:inherit}
+button,.btn{cursor:pointer;border:1px solid var(--ink);background:var(--card);padding:8px 14px;border-radius:6px;text-decoration:none;display:inline-block}
+button:hover,.btn:hover{background:#e3e9f0}
+.primary{background:var(--ink)!important;color:#fff!important}
+.primary:hover{background:#2d4263!important}
+.del{border-color:var(--red);color:var(--red)}
+:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:16px}
+.panel label{display:block;margin:0 0 10px;font-weight:600}
+.panel input,.panel textarea{width:100%;padding:8px;border:1px solid var(--line);border-radius:6px;margin-top:4px;font-weight:400;background:#fff}
+.row{display:grid;grid-template-columns:1fr 130px;gap:12px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+#list{list-style:none;margin:0;padding:0 0 0 26px;border-left:4px solid var(--ink)}
+#list li{position:relative;background:var(--card);border:1px solid var(--line);border-radius:6px;padding:12px 12px 12px 16px;margin:0 0 10px;display:flex;gap:12px;align-items:flex-start}
+#list li::before{content:"";position:absolute;left:-36px;top:20px;width:14px;height:14px;border-radius:50%;background:var(--bg);border:4px solid var(--ink)}
+.txt{flex:1}.txt b{display:block}.txt small{color:var(--mute)}
+.yr{font:700 1.1rem Bitter,serif;color:var(--red);min-width:64px;text-align:right}
+.acts{display:flex;gap:6px}
+.acts button{padding:4px 10px}
+#status{min-height:1.5em}
+@media(max-width:480px){.row{grid-template-columns:1fr}#list li{flex-wrap:wrap}}
+</style>
+</head>
+<body>
+<main>
+  <h1>Teacher: timeline events</h1>
+  <p class="lead">Build your event list, then send it to your class. Your changes save automatically in this browser.</p>
+
+  <div class="panel">
+    <label>Assignment title (students see this)<input id="title" placeholder="Put it in order"></label>
+  </div>
+
+  <h2 id="formh">Add an event</h2>
+  <div class="panel">
+    <div class="row">
+      <label>Event<input id="t" placeholder="e.g. Louisiana Purchase"></label>
+      <label>Year<input id="y" type="number" placeholder="1803"></label>
+    </div>
+    <label>Hint for students (optional)<textarea id="h" rows="2" placeholder="A clue that doesn't give away the year"></textarea></label>
+    <div class="bar" style="margin:0">
+      <button class="primary" id="add">Add event</button>
+      <button id="cancel" hidden>Cancel edit</button>
+    </div>
+  </div>
+
+  <h2>Events (<span id="n"></span>)</h2>
+  <ol id="list"></ol>
+  <div class="bar">
+    <button id="samp">Load sample events</button>
+    <button class="del" id="clr">Remove all</button>
+  </div>
+
+  <h2>Send to students</h2>
+  <div class="panel">
+    <div class="bar" style="margin-top:0">
+      <a class="btn primary" id="gc" target="_blank" rel="noopener">Share to Google Classroom</a>
+      <button id="copy">Copy student link</button>
+      <a class="btn" id="prev" target="_blank" rel="noopener">Preview as student</a>
+    </div>
+    <p class="note" id="linkinfo"></p>
+    <p class="note">The Classroom button opens Google Classroom, where you pick the class and choose Assignment, Announcement, or Material. Each link is a snapshot of the events as they are right now. If you change events later, share a new link.</p>
+  </div>
+
+  <h2>Edit a link you already sent</h2>
+  <div class="panel">
+    <label>Paste a student link<input id="old" placeholder="https://.../index.html#z=..."></label>
+    <button id="loadold">Load into editor</button>
+  </div>
+
+  <h2>Save or load a file</h2>
+  <div class="bar">
+    <button id="dl">Download events.json</button>
+    <button id="imp">Import events.json</button>
+  </div>
+  <input type="file" id="file" accept=".json,application/json" hidden>
+  <p class="note">To make a set the default for anyone who opens your site without a special link, upload the downloaded file to your GitHub repo next to index.html and name it events.json.</p>
+  <p id="status" role="status"></p>
+</main>
+
+<script>
+const SAMPLE = [
+ {t:"Declaration of Independence adopted",y:1776,h:"Thomas Jefferson was the main author."},
+ {t:"U.S. Constitution signed",y:1787,h:"Written at a convention in Philadelphia."},
+ {t:"Louisiana Purchase",y:1803,h:"Doubled the size of the young nation."},
+ {t:"Emancipation Proclamation",y:1863,h:"Issued by Abraham Lincoln during the Civil War."},
+ {t:"Transcontinental Railroad completed",y:1869,h:"Joined at Promontory Summit, Utah."},
+ {t:"Wright brothers' first flight",y:1903,h:"Kitty Hawk, North Carolina."},
+ {t:"Stock market crash",y:1929,h:"Marked the start of the Great Depression."},
+ {t:"Attack on Pearl Harbor",y:1941,h:"Brought the U.S. into World War II."},
+ {t:"Brown v. Board of Education",y:1954,h:"Supreme Court ruled school segregation unconstitutional."},
+ {t:"Apollo 11 lands on the Moon",y:1969,h:"Neil Armstrong and Buzz Aldrin."}
+];
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const say = s => $('status').textContent = s;
+const clean = a => Array.isArray(a) ? a.filter(e => e && e.t && Number.isFinite(+e.y)).map(e => ({t:String(e.t), y:+e.y, h:e.h ? String(e.h) : ''})) : [];
+
+/* link codec (compressed when the browser supports it) */
+const b64 = u => btoa(String.fromCharCode(...u));
+async function pipe(u8, T){ return new Uint8Array(await new Response(new Blob([u8]).stream().pipeThrough(new T('deflate-raw'))).arrayBuffer()); }
+async function pack(o){
+  const u = new TextEncoder().encode(JSON.stringify(o));
+  if (window.CompressionStream) return 'z=' + b64(await pipe(u, CompressionStream)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  return 'd=' + b64(u);
+}
+async function unpack(h){
+  const m = h.match(/#([dz])=(.+)$/); if (!m) return null;
+  let t = m[2].replace(/-/g,'+').replace(/_/g,'/'); while (t.length % 4) t += '=';
+  let u = Uint8Array.from(atob(t), c => c.charCodeAt(0));
+  if (m[1] === 'z') u = await pipe(u, DecompressionStream);
+  return JSON.parse(new TextDecoder().decode(u));
+}
+
+let events = [], editing = null, link = '';
+try { events = clean(JSON.parse(localStorage.getItem('tl-events'))); $('title').value = localStorage.getItem('tl-title') || ''; } catch(e){}
+const save = () => { try { localStorage.setItem('tl-events', JSON.stringify(events)); localStorage.setItem('tl-title', $('title').value); } catch(e){} };
+const data = () => ({n: $('title').value.trim() || 'Put it in order', e: events});
+
+async function refreshLinks() {
+  const ok = events.length >= 2;
+  const base = location.href.split(/[#?]/)[0].replace(/[^/]*$/, '') + 'index.html';
+  link = ok ? base + '#' + await pack(data()) : '';
+  const gc = $('gc'), pv = $('prev');
+  if (ok) {
+    gc.href = 'https://classroom.google.com/share?url=' + encodeURIComponent(link) + '&title=' + encodeURIComponent(data().n);
+    pv.href = link; gc.removeAttribute('aria-disabled'); gc.style.opacity = pv.style.opacity = 1;
+    $('linkinfo').textContent = link.length > 6000 ? 'This link is very long (' + link.length + ' characters). If Classroom rejects it, remove a few events or shorten the hints.' : '';
+  } else {
+    gc.removeAttribute('href'); pv.removeAttribute('href'); gc.style.opacity = pv.style.opacity = .5;
+    $('linkinfo').textContent = 'Add at least two events to create a student link.';
+  }
+}
+
+function draw() {
+  $('n').textContent = events.length;
+  const rows = events.map((e, i) => [e, i]).sort((a, b) => a[0].y - b[0].y);
+  $('list').innerHTML = rows.length ? rows.map(([e, i]) => `<li><span class="yr">${e.y}</span>
+    <div class="txt"><b>${esc(e.t)}</b>${e.h ? `<small>${esc(e.h)}</small>` : ''}</div>
+    <div class="acts"><button data-ed="${i}" aria-label="Edit ${esc(e.t)}">Edit</button><button class="del" data-del="${i}" aria-label="Delete ${esc(e.t)}">Delete</button></div></li>`).join('')
+    : '<li class="txt">No events yet. Add one above.</li>';
+  $('list').querySelectorAll('[data-del]').forEach(b => b.onclick = () => { if (editing === +b.dataset.del) resetForm(); events.splice(+b.dataset.del, 1); changed(); });
+  $('list').querySelectorAll('[data-ed]').forEach(b => b.onclick = () => {
+    editing = +b.dataset.ed; const e = events[editing];
+    $('t').value = e.t; $('y').value = e.y; $('h').value = e.h;
+    $('formh').textContent = 'Edit event'; $('add').textContent = 'Save changes'; $('cancel').hidden = false;
+    $('t').focus(); window.scrollTo({top: 0, behavior: 'smooth'});
+  });
+}
+function resetForm() {
+  editing = null; $('t').value = $('y').value = $('h').value = '';
+  $('formh').textContent = 'Add an event'; $('add').textContent = 'Add event'; $('cancel').hidden = true;
+}
+function changed() { save(); draw(); refreshLinks(); }
+
+$('add').onclick = () => {
+  const t = $('t').value.trim(), y = $('y').value;
+  if (!t || y === '') return say('Enter an event name and a year.');
+  const e = {t, y:+y, h:$('h').value.trim()};
+  if (editing === null) events.push(e); else events[editing] = e;
+  say(editing === null ? 'Event added.' : 'Changes saved.'); resetForm(); $('t').focus(); changed();
+};
+$('cancel').onclick = () => { resetForm(); say(''); };
+$('title').oninput = () => { save(); refreshLinks(); };
+$('samp').onclick = () => { events = SAMPLE.slice(); resetForm(); changed(); say('Sample events loaded.'); };
+$('clr').onclick = () => { if (confirm('Remove all events?')) { events = []; resetForm(); changed(); } };
+$('copy').onclick = async () => {
+  if (!link) return say('Add at least two events first.');
+  try { await navigator.clipboard.writeText(link); say('Student link copied.'); } catch(e) { prompt('Copy this student link:', link); }
+};
+$('loadold').onclick = async () => {
+  try {
+    const d = await unpack($('old').value.trim()); const ev = clean(Array.isArray(d) ? d : d.e);
+    if (!ev.length) throw 0;
+    events = ev; if (d.n) $('title').value = d.n; $('old').value = ''; resetForm(); changed(); say('Loaded ' + ev.length + ' events. Edit them, then share a new link.');
+  } catch(e) { say('That link could not be read. Paste the whole student link, including the part after #.'); }
+};
+$('dl').onclick = () => {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(data(), null, 2)], {type:'application/json'}));
+  a.download = 'events.json'; a.click();
+};
+$('imp').onclick = () => $('file').click();
+$('file').onchange = async ev => {
+  try {
+    const d = JSON.parse(await ev.target.files[0].text()); const e = clean(Array.isArray(d) ? d : d.e);
+    if (!e.length) throw 0;
+    events = e; if (d.n) $('title').value = d.n; resetForm(); changed(); say('Imported ' + e.length + ' events.');
+  } catch(err) { say('That file could not be read. It needs a list of events with t (title), y (year), and optional h (hint).'); }
+  ev.target.value = '';
+};
+draw(); refreshLinks();
+</script>
+</body>
+</html>
